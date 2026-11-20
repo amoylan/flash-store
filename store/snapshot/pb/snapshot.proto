@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package snapshot;
+
+option go_package = "github.com/amoylan/flash-store/store/snapshot/pb";
+
+message ObjectEntryPb {
+  // "domain.name" 形式的 Kind 字符串（不含 codec 版本号）。
+  string kind = 1;
+  string key = 2;
+  // schema.EncodeRow 产出的自描述字节。
+  bytes row = 3;
+  int64 expired_at = 4; // Unix seconds, 0 = no expiry
+}
+
+message KVEntryPb {
+  string key = 1;
+  bytes value = 2;
+  int64 expired_at = 3;
+}
+
+message UserDataPb {
+  repeated ObjectEntryPb objects = 1;
+  repeated KVEntryPb kvs = 2;
+}
+
+message ShardSnapshotPb {
+  int32 shard_id = 1;
+  map<uint64, UserDataPb> users = 2;
+}
+
+message SeqDedupStatePb {
+  int64 max_seen = 1;
+  int64 window_size = 2;
+  repeated int64 seen = 3;
+}
+
+message WorkerSnapshotPb {
+  int32 worker_id = 1;
+  int64 seq = 2;
+  int64 wal_offset = 3;
+  // field 4 (ack_states) removed — ack 机制已移除。
+  // field 6 (all_ack_targets) removed — AckTarget 广播机制已移除。
+  reserved 4, 6;
+  reserved "ack_states", "all_ack_targets";
+  SeqDedupStatePb seq_dedup = 5;
+}

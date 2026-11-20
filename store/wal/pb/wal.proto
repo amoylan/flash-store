@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package wal;
+
+option go_package = "github.com/amoylan/flash-store/store/wal/pb";
+
+message WalPb {
+  // field 1 (type) and field 2 (seq) removed — moved to transport-layer Header.
+  // Reserved to prevent accidental reuse.
+  reserved 1, 2;
+  reserved "type", "seq";
+
+  repeated EventPb events = 3;
+  // field 4 (ack_events) removed — ack 机制已移除。
+  // field 5 (all_ack_targets) removed — AckTarget 广播机制已移除。
+  // field 6 (snapshot_ack_targets) removed — SnapshotAckTargets 机制已移除。
+  // Reserved to prevent accidental reuse；proto3 解码自动跳过未知字段，老 WAL 兼容。
+  reserved 4, 5, 6;
+  reserved "ack_events", "all_ack_targets", "snapshot_ack_targets";
+  // Schemas 广播 payload：master 把当前注册的 Kind schema 列表 JSON-encode 后放这里。
+  // 用 JSON 嵌入而非原生 proto 消息，避免 KindDescriptor 跨包时需要维护两份定义——
+  // 反正 schemas 广播频率极低（每次 master 启动一次），体积差可忽略。
+  bytes schemas_json = 7;
+}
+
+message EventPb {
+  string event_type = 1;
+  uint64 identity = 2;
+  repeated CmdPb cmds = 3;
+  repeated KvCmdPb kv_cmds = 4;
+  BizDataPb biz_data = 5;
+  // field 6 (ack_targets) removed — ack 机制已移除。
+  reserved 6;
+  reserved "ack_targets";
+}
+
+message CmdPb {
+  int32 op = 1;
+  string key = 2;
+  // kind 为 "domain.name" 形式；不再带 codec 版本号（Row 自描述 + schema.Row.Version 承担版本语义）。
+  string kind = 3;
+  // row 为 schema.EncodeRow 产出的自描述字节流，OpDelete 时为空。
+  bytes row = 4;
+  int64 ttl_ns = 5; // time.Duration in nanoseconds
+}
+
+message KvCmdPb {
+  int32 op = 1;
+  string key = 2;
+  bytes value = 3;
+  int64 ttl_ns = 4;
+}
+
+message BizDataPb {
+  uint32 version = 1;
+  bytes data = 2;
+}

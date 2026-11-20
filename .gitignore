@@ -1,0 +1,12 @@
+.DS_Store
+/.idea
+*local*
+# bench-server 的 deploy/local 是真实的本地部署清单，不属于 *local* 屏蔽范围
+!bench-server/deploy/local/
+!bench-server/deploy/local/**
+*.out
+*.log
+/test
+.vscode
+.claude/worktrees/
+.agents
