@@ -2,21 +2,30 @@
 
 [![CI](https://github.com/amoylan/flash-store/actions/workflows/ci.yml/badge.svg)](https://github.com/amoylan/flash-store/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#项目状态)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-基于 WAL（Write-Ahead Log）的**分布式内存存储引擎**。为交易撮合、账务、撮合结果推送等
-**高吞吐、低延迟、强持久化要求**的场景提供状态管理：写入先落 WAL 再 apply 内存，
-Slave 通过 replay 重建状态，快照保证快速恢复。
+flash-store 是一个基于 WAL（Write-Ahead Log）的 Go 内存状态存储库。它提供事务写入、
+内存索引、WAL replay、snapshot 和事件 listener，可作为交易、账务等状态型服务的存储组件。
+它是嵌入业务进程的 library，不是独立数据库，也不提供自动选主、故障转移或集群编排。
+
+## 项目状态
+
+> [!WARNING]
+> flash-store 目前处于实验性 v0 阶段。公共 API、配置结构和持久化格式可能在后续版本中变化。
+> 核心内存路径有单元测试和 race detector 检查，但 Kafka、S3 等后端尚无公开的端到端测试套件。
+> 在生产环境使用前，请基于自身数据规模、故障模型和恢复流程完成验证。
 
 ## 定位与适用场景
 
-**它是什么**：一个"内存即真相、WAL 保证持久化"的存储层。单条写路径 = append WAL（kafka
-acks=all 或本地文件）→ 更新内存索引 → 同步通知 listener。读路径纯内存。
+**它是什么**：一个嵌入业务进程的内存状态存储库。单条写路径为 append WAL（Kafka 或
+本地文件）→ 更新内存索引 → 同步通知 listener，读路径直接访问内存。实际持久性取决于
+WAL 后端及其部署配置。
 
 **适合的场景**：
 
-- 交易系统的账户 / 订单 / 持仓状态（单 key 读写为主、需要崩溃后精确恢复）
-- 需要主从复制的内存状态（Master 写、Slave 查询 / 打快照）
+- 交易系统的账户 / 订单 / 持仓状态（单 key 读写为主，需要通过 WAL 恢复状态）
+- 采用单写者模型，通过 WAL 构建只读副本或快照副本的内存状态
 - 事件驱动架构中"状态 + 事件流"一体化（业务事件随 WAL 流出，见 Listener）
 
 **不适合的场景**：
@@ -36,6 +45,14 @@ acks=all 或本地文件）→ 更新内存索引 → 同步通知 listener。�
 ## 快速开始
 
 要求 **Go 1.25+**。依赖全部来自公共 Go proxy。
+
+安装当前版本：
+
+```bash
+go get github.com/amoylan/flash-store/store@latest
+```
+
+构建和运行本仓库：
 
 ```bash
 # 构建核心库
@@ -100,6 +117,18 @@ if err != nil {
 fmt.Printf("order: %+v\n", got)
 ```
 
+## 版本与兼容性
+
+项目尚未发布稳定版本。`v0` 阶段可能调整公共 API、配置结构，以及 WAL 和 snapshot 格式；
+升级前请阅读对应版本的变更说明并验证已有数据。Go module 位于 `store/` 子目录，因此发布标签
+使用 `store/vX.Y.Z` 形式。
+
+## 当前验证范围
+
+CI 对核心模块执行格式检查、依赖一致性检查、构建、`go vet`、单元测试和 race detector。
+当前仓库不包含 Kafka、S3 后端的端到端测试，也不提供公开的性能基线。相关能力在生产使用前
+需要结合真实基础设施完成故障恢复、重放一致性和负载测试。
+
 ## 限制
 
 设计取舍明确，使用前请确认以下限制符合你的场景：
@@ -110,6 +139,7 @@ fmt.Printf("order: %+v\n", got)
   跨 partition 无全局顺序；同 partition 内并发提交的相对顺序由调度决定，
   **同一 (kind, key) 的并发写必须由业务侧串行化**（标准做法是 per-user lock）。
 - **单写者模型**：Master 单写；Slave 只读 / 只打快照。无多写者协调。
+- **无内建高可用控制面**：不负责选主、故障转移、成员管理或部署编排。
 - **无内建下游一致性补偿**：store 不跟踪下游消费进度（无 ack / 水位 / 去重机制）。
   消息同步的去重与补发由业务侧基于 Listener + replay 自行构建
   （设计参考 [docs/todo/outbox-design.md](docs/todo/outbox-design.md)，未实现）。
@@ -127,6 +157,7 @@ fmt.Printf("order: %+v\n", got)
 | `store/` | 核心存储引擎库（本仓库主体，业务方 import 的模块） |
 | `store/example/` | 可运行示例（Kind 注册 / 事务写 / 索引查询 / Listener） |
 | `docs/` | 设计文档与指南 |
+| `Makefile` | 本地检查和 protobuf 生成入口 |
 
 ## 文档
 
@@ -141,6 +172,11 @@ fmt.Printf("order: %+v\n", got)
 - [类型系统参考](docs/type-system.md) — Row / FieldValue / wire format / 演进规则与设计权衡
 - [Outbox 设计（TODO）](docs/todo/outbox-design.md) — 业务侧消息发件箱（推荐形态，未实现）
 - [Metrics 手册](docs/metrics.md) — Prometheus 指标全集与命名约定
+
+## 参与贡献与安全问题
+
+提交改动前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全漏洞请按
+[SECURITY.md](SECURITY.md) 中的方式私下报告，不要提交公开 Issue。
 
 ## License
 

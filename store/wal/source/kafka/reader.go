@@ -46,7 +46,7 @@ func newReader(conf config.Reader, partition int) (*Reader, error) {
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(conf.Brokers...),
 		// 不在构造时绑定 ConsumePartitions——Seek 时再 AddConsumePartitions，
-		// 这样语义和原 kafka-go Reader.SetOffset 对齐：构造 → Seek → Next。
+		// 保持“构造 → Seek → Next”的 reader 生命周期。
 	}
 	if os.Getenv(envKafkaDebugLog) == "1" {
 		opts = append(opts, kgo.WithLogger(kgo.BasicLogger(os.Stderr, kgo.LogLevelDebug, nil)))

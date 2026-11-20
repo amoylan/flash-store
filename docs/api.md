@@ -59,8 +59,9 @@ func init() {
     if _, err := registry.RegisterStruct[Order](orderKind); err != nil { panic(err) }
 }
 
-// 3. 启动 Store（业务进程即 Master）
-s, _ := store.NewStore(config.Master(...))
+// 3. 启动 Store（本地演示使用 noop WAL；持久化环境需显式配置 Kafka 或 file WAL）
+s, err := store.NewStore(config.DefaultConfigForTest(), nil)
+if err != nil { return err }
 if _, err := s.RestoreAndStartReplay(ctx, "", store.ReplayOptions{
     Mode: wal.ReplayToLatest, ApplyToStore: true,
 }); err != nil { return err }

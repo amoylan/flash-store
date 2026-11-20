@@ -6,9 +6,8 @@ package config
 //	 0 = RequireNone  不等 ack（零值；最快但不耐久）
 //	 1 = RequireOne   只等 leader
 //
-// flash-store 的耐久性约束要求线上必须用 RequireAll，详见
-// docs/kafka-producer-concurrency.md。该类型刻意不直接 alias 底层客户端
-// （franz-go / kafka-go）的类型，以避免 config 公开 API 被客户端实现拴住。
+// flash-store 的耐久性约束要求线上必须用 RequireAll。该类型刻意不直接
+// alias 底层客户端类型，以避免 config 公开 API 被具体实现拴住。
 type RequiredAcks int
 
 const (
@@ -66,8 +65,7 @@ type Writer struct {
 	// 显式置 true → 即使 RequiredAck=RequireAll 也强制关闭。
 	//
 	// 关闭 idempotent 失去 broker 端按 producerId+seq 重排/dedup 的能力；
-	// 同 partition 内乱序到达不再恢复——上层须自己保证乱序无害（详见
-	// docs/kafka-producer-concurrency.md 约束 (c)）。
+	// 同 partition 内乱序到达不再恢复，上层须自行保证乱序无害。
 	DisableIdempotent bool
 
 	// MaxInflightPerBroker 显式设置每 broker 的 in-flight produce 请求上限。

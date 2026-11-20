@@ -11,19 +11,14 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: store
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
           cache-dependency-path: store/go.sum
-      - name: Build
-        run: go build ./...
-      - name: Vet
-        run: go vet ./...
-      - name: Unit tests
-        run: go test ./... -count=1 -timeout 5m
+      - name: Check formatting, dependencies, build, vet, and tests
+        run: make check
+      - name: Race detector
+        run: make test-race

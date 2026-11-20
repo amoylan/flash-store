@@ -2,7 +2,7 @@
 
 > 最后更新：2026-08-27
 
-flash-store 是一个基于 WAL（Write-Ahead Log）的分布式内存存储引擎，为交易系统提供高吞吐、低延迟的状态管理。核心设计目标：
+flash-store 是一个基于 WAL（Write-Ahead Log）的 Go 内存状态存储库，设计面向交易等状态型服务。项目当前处于实验性 v0 阶段，以下内容描述设计目标和实现机制，不构成生产可用性或性能承诺。核心设计目标：
 
 1. **WAL 驱动的主从复制**：Master 写 WAL，Slave 通过 replay WAL 重建状态
 2. **Snapshot 持久化**：SnapshotSlave 定期创建全量快照，避免 WAL 无限增长

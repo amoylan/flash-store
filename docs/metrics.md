@@ -79,7 +79,6 @@ kafkaWriter.RegisterMetrics(wrapped)
 | `flashstore_snapshot_*` | Snapshot 创建 / 恢复 |
 | `flashstore_replay_*` | Replay 进度 / 状态 |
 | `flashstore_last_snapshot_*` | Snapshot 历史 |
-| `flashstore_kafka_writer_*` | Kafka producer（kafka-go Stats 转 prom） |
 
 ### 标准 label 名
 
@@ -198,29 +197,11 @@ sum(rate(flashstore_wal_write_retries_total[5m]))
 
 ---
 
-## 10. Kafka Producer（infra 层）
+## 10. Kafka 后端指标边界
 
-来源：[store/wal/source/kafka/metrics.go](../store/wal/source/kafka/metrics.go)。`kafka.Writer.Stats()` 是 **read-and-reset**：本 collector 是唯一消费者，业务勿再调用 `Stats()`。
-
-| 名称 | 类型 | label | 含义 |
-|------|------|-------|------|
-| `flashstore_kafka_writer_writes_total` | Counter | `worker_id` | kafka-go 已发出的 batch 数 |
-| `flashstore_kafka_writer_messages_total` | Counter | `worker_id` | 物理 message 累计（含内部重发膨胀） |
-| `flashstore_kafka_writer_bytes_total` | Counter | `worker_id` | 物理字节累计（含重发膨胀） |
-| `flashstore_kafka_writer_errors_total` | Counter | `worker_id` | kafka 内部错误 |
-| `flashstore_kafka_writer_retries_total` | Counter | `worker_id` | kafka-go 内部 ProduceRequest **attempt** 重试，对 store 透明 |
-| `flashstore_kafka_writer_batch_seconds_{avg,max}` | Gauge | `worker_id` | 上次 scrape 间隔的 batch 攒批耗时 |
-| `flashstore_kafka_writer_wait_seconds_{avg,max}` | Gauge | `worker_id` | 上次 scrape 间隔的入队等待耗时 |
-| `flashstore_kafka_writer_write_seconds_{avg,max}` | Gauge | `worker_id` | 上次 scrape 间隔的 ProduceRequest 网络耗时 |
-
-### Store 层 vs Kafka 层 metric 对照
-
-不是重复，是分层互补：
-
-- **`wal_type` 维度只在 store 层**。区分 business / schema_config 字节占比靠 store 层。
-- **耗时分解只在 kafka 层**。`batch + wait + write` 是 store 层 `wal_write_duration` 的内部组成。
-- **errors / retries 语义两层不同**——`flashstore_wal_write_retries` 是 `appendWal` 整次重试（业务可见，复用 seq），`flashstore_kafka_writer_retries` 是 kafka-go 内部 attempt（业务透明）。看错层会得错误结论。
-- **bytes 差值反映 kafka 内部重发膨胀**：`kafka_writer_bytes_total` − `wal_write_bytes_total` ≈ kafka 重试重发的物理字节。
+Kafka 后端当前不直接导出 franz-go 客户端内部的 batch、retry 或网络耗时指标。
+`flashstore_wal_*` 只描述 store 调用 WAL writer 时可观察到的结果。若业务需要 broker
+或客户端内部状态，应通过 Kafka 平台监控或在后续版本中增加有明确稳定语义的 collector。
 
 ---
 
@@ -249,5 +230,4 @@ sum(rate(flashstore_wal_write_retries_total[5m]))
 
 - [架构总览](architecture.md)
 - [API guide](api.md)
-- [压测方案](bench-plan.md) — §7.1 Metrics 设计
 - 源码：[store/metrics/](../store/metrics)

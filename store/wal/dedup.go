@@ -14,7 +14,7 @@ const DefaultMaxSeqLag = DefaultDedupWindowSize / 2
 // SeqDeduplicator 在 WAL 回放时检测并剔除重复消息。
 //
 // 背景：
-//   - 极端情况下（如 Broker 故障 + kafka-go 内部重试），同一条消息
+//   - 极端情况下（如 Broker 故障 + Kafka 客户端内部重试），同一条消息
 //     （相同 seq）可能以两个不同的 Kafka offset 写入分区。
 //   - seq 由 worker 内原子递增生成，多个 goroutine 并发调用 Writer.Append
 //     时进入 kafka.Writer 内部 batch 的顺序无法保证，因此 offset 顺序与 seq 顺序

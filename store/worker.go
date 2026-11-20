@@ -274,7 +274,7 @@ func (w *worker) appendWal(ctx context.Context, walType wal.WalType, seq int64, 
 	//
 	// 为什么复用 seq：
 	//   Writer.Append 在消息入队后不再检查 ctx，因此 Append 返回错误时
-	//   消息可能已写入 Kafka（kafka-go 内部重试），也可能尚未写入。
+	//   消息可能已写入 Kafka（客户端内部重试），也可能尚未写入。
 	//   复用同一 seq 重试，无论哪种情况，replay 时 SeqDeduplicator 都能
 	//   幂等地跳过重复写入，不会产生业务数据被重复执行的问题。
 	//

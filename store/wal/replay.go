@@ -35,7 +35,7 @@ type ReplayOptions struct {
 	StartOffset Offset
 	Mode        ReplayMode
 	// DedupWindowSize 控制去重滑动窗口的大小，0 表示使用默认值（DefaultDedupWindowSize）。
-	// 去重默认开启，无法关闭——相同 seq 的消息（kafka-go 重试写入导致）会被自动跳过。
+	// 去重默认开启，无法关闭——相同 seq 的消息（Kafka 客户端重试写入导致）会被自动跳过。
 	DedupWindowSize int64
 	// SeqDedup 可选，从 snapshot 恢复的去重器实例。
 	// 非 nil 时直接使用，忽略 DedupWindowSize；nil 时按 DedupWindowSize 新建。

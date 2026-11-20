@@ -89,7 +89,7 @@ func newWriter(conf config.Writer, partition int) (*Writer, error) {
 // 并发与批处理：本方法是 goroutine-safe 的；多个 worker.Commit 并发调用会被 franz-go
 // 内部按 partition 攒批（ProducerLinger + ProducerBatchMaxBytes），同 partition 内
 // 最多 5 个 in-flight batch（idempotent producer 默认值），由 broker 按 producerId+seq
-// 重排/dedup，retry 乱序到达自动恢复——见 docs/kafka-producer-concurrency.md。
+// 重排/dedup，并在 retry 乱序到达时恢复顺序。
 func (w *Writer) Append(ctx context.Context, record wal.WriteRecord) (wal.Offset, error) {
 	// 早期 ctx 检查：避免在已取消的 ctx 下仍把消息送入 producer 队列。
 	if err := ctx.Err(); err != nil {
@@ -135,7 +135,7 @@ func (w *Writer) Close() error {
 // mapRequiredAcks 把 config.RequiredAcks 翻译成 franz-go 的 kgo.Acks。
 //
 // 配置值刻意与 Kafka 协议字段同义（-1 / 0 / 1），所以这里是字面 1-1 映射。
-// 未知值兜底用 NoAck——零值语义与底层 kafka-go 时一致（kafka.RequireNone == 0）。
+// 未知值兜底用 NoAck，与 RequiredAcks 的零值语义一致。
 func mapRequiredAcks(a config.RequiredAcks) kgo.Acks {
 	switch a {
 	case config.RequireAll:
